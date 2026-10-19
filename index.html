@@ -1,0 +1,1243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#8c1d2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bundle Savings">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="shim.js"></script>
+</head>
+<body>
+<title>Cattleman's Bundle Savings</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<style>
+/* Layout: freezer-ledger. Two aligned columns, bundle gauges left, store price board right, totals pinned under both. */
+:root{
+  --bg:#eef2f4; --surface:#ffffff; --ink:#172027; --muted:#5a6872; --line:#d3dbe0;
+  --track:#e3e9ec; --meat:#8c1d2a; --meat-ink:#fff3f1;
+  --deal:#a85a06; --deal-bg:#fbefdf; --save:#256d43; --save-bg:#e2f2e8; --over:#a42a2a; --over-bg:#f8e3e1;
+  --active:#24506f; --active-ink:#ffffff;
+  --moo:#24506f; --moo-ink:#ffffff; --kake:#9b2c6f; --kake-ink:#ffffff;
+  --f-display:"Big Shoulders Display","Oswald","Arial Narrow",sans-serif;
+  --f-body:"Barlow","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --f-num:"Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161a; --surface:#192127; --ink:#e7edf0; --muted:#94a3ad; --line:#2b363e;
+  --track:#232d34; --meat:#c13a49; --meat-ink:#ffffff;
+  --deal:#e6a04a; --deal-bg:#3a2a14; --save:#62c48b; --save-bg:#16301f; --over:#ef7d74; --over-bg:#3a1b1a;
+  --active:#7fb3d6; --active-ink:#0d1418;
+  --moo:#7fb3d6; --moo-ink:#0d1418; --kake:#e48ac0; --kake-ink:#1d0d16; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#11161a; --surface:#192127; --ink:#e7edf0; --muted:#94a3ad; --line:#2b363e;
+  --track:#232d34; --meat:#c13a49; --meat-ink:#ffffff;
+  --deal:#e6a04a; --deal-bg:#3a2a14; --save:#62c48b; --save-bg:#16301f; --over:#ef7d74; --over-bg:#3a1b1a;
+  --active:#7fb3d6; --active-ink:#0d1418;
+  --moo:#7fb3d6; --moo-ink:#0d1418; --kake:#e48ac0; --kake-ink:#1d0d16; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.35}
+.wrap{max-width:860px;margin:0 auto;padding-block:14px 40px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+button{font:inherit;color:inherit}
+button:focus-visible{outline:2px solid var(--active);outline-offset:2px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+.topbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:6px}
+.who{border:0;border-radius:999px;padding:7px 18px;min-height:36px;cursor:pointer;font-family:var(--f-num);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;background:var(--moo);color:var(--moo-ink);transition:background .2s ease,color .2s ease}
+.who[data-who="kake"]{background:var(--kake);color:var(--kake-ink)}
+
+header{text-align:center}
+header h1{font-family:var(--f-display);font-weight:800;font-size:clamp(30px,8vw,44px);line-height:.95;margin:0;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+header .asof{margin-top:6px;font-size:13px;color:var(--muted)}
+
+.board .verdict{margin:6px 0 2px}
+.verdict{margin:16px 0 14px;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;text-align:center;gap:4px 10px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.verdict .big{font-family:var(--f-num);font-weight:700;font-size:22px}
+.verdict.save .big{color:var(--save)} .verdict.over .big{color:var(--over)}
+.verdict .small{font-size:13px;color:var(--muted)}
+
+.board{display:flex;flex-direction:column;gap:8px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.colhead{align-items:start;padding-bottom:2px}
+.colhead h2{margin:0;font-family:var(--f-num);font-weight:700;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.headbox{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;min-width:0}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:5px 10px;font-family:var(--f-num);font-weight:600;font-size:13px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--active);color:var(--active-ink)}
+
+.toggles{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:2px 0 4px}
+.tog{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-family:var(--f-num);font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px}
+.tog[aria-pressed="true"]{background:var(--active);border-color:var(--active);color:var(--active-ink)}
+.tog svg{width:20px;height:14px;display:block}
+
+/* bundle cell */
+.bcell{display:flex;gap:6px;align-items:stretch;min-width:0}
+.gauge{position:relative;flex:1 1 auto;min-width:0;border:0;padding:0;border-radius:10px;cursor:pointer;background:var(--track);min-height:58px;overflow:hidden;text-align:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.gauge .lab{position:absolute;inset:0;padding:6px 6px;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.gauge .lab.base{position:relative;inset:auto;min-height:58px;height:100%}
+.gauge .lab.top{background:var(--meat);color:var(--meat-ink);clip-path:inset(0 calc(100% - var(--pct,100%)) 0 0);transition:clip-path .25s ease}
+.gauge .lab.ctl{pointer-events:none}
+.gauge .lab.ctl .nm, .gauge .lab.ctl .lft{visibility:hidden}
+.gauge .lab.ctl .seg{pointer-events:auto}
+.gauge .inner{display:inline-flex;flex-direction:column;align-items:flex-end;max-width:100%}
+.gauge .line{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px 6px;max-width:100%}
+.gauge .nm{font-family:var(--f-num);font-weight:700;font-size:clamp(22px,7.2vw,32px);line-height:1;text-transform:uppercase;letter-spacing:.01em;overflow-wrap:normal;text-align:center;min-width:0}
+.gauge .lft{font-family:var(--f-num);font-weight:500;font-size:12.5px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gauge .slot{display:inline-block}
+.gauge .lab:not(.ctl) .slot{visibility:hidden}
+.gauge .seg button{padding:3px 7px;font-size:12px}
+.gauge .seg{background:var(--surface);color:var(--ink)}
+.gauge[data-empty="true"]{cursor:default}
+.gauge[data-empty="true"] .nm{text-decoration:line-through;text-decoration-thickness:1px}
+.vals{flex:0 0 auto;width:66px;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.vals .locked{font-size:12.5px;color:var(--muted);line-height:1.15}
+.vals .left{font-weight:700;font-size:17px;line-height:1.05}
+.plus{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:1px 6px;font-family:var(--f-num);font-weight:600;font-size:12px;cursor:pointer;color:var(--muted)}
+.plus:disabled{opacity:.35;cursor:default}
+
+/* store cell */
+.scell{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 9px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;min-width:0;min-height:58px}
+.scell .store{font-family:var(--f-num);font-weight:700;font-size:clamp(22px,7.2vw,30px);line-height:1;max-width:100%;overflow-wrap:anywhere}
+.scell .cost{font-family:var(--f-num);font-weight:700;font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scell .dblock{display:inline-flex;flex-direction:column;align-items:flex-end;max-width:100%}
+.scell .desc{font-size:12px;color:var(--muted);line-height:1.25;overflow-wrap:anywhere;text-align:center}
+.scell .meta{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 6px;align-items:center;font-family:var(--f-num);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+@keyframes nc-blink{0%,49%{background:#000;color:#fff;border-color:#000}50%,100%{background:#fff;color:#000;border-color:#000}}
+.scell.missing{animation:nc-blink 1.2s steps(1) infinite}
+.scell.missing .store,.scell.missing .desc{color:inherit}
+.scell.missing .desc{font-weight:700;font-size:14px}
+@media (prefers-reduced-motion: reduce){.scell.missing{animation:none;background:#000;color:#fff}}
+.scell.pick{border-style:dashed;background:transparent}
+.scell.pick .desc{font-size:14px}
+.onstrip{font-family:var(--f-num);font-size:12.5px;color:var(--muted);text-align:center;line-height:1.25}
+.storegroup{display:flex;flex-direction:column;align-items:center;gap:3px}
+.storegroup .glabel{font-family:var(--f-num);font-weight:600;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.storegroup .gbtns{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.tog .tsub{display:block;font-size:10.5px;font-weight:500;opacity:.8;line-height:1}
+.tog.stack{flex-direction:column;gap:1px}
+.title-btn{border:0;background:none;padding:0;cursor:pointer;color:inherit;font:inherit}
+.title-btn:hover h1{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.flyer img{display:block;width:100%;height:auto;border-radius:6px;margin-bottom:10px;background:#fff}
+.tag{display:inline-block;border-radius:4px;padding:0 5px;font-family:var(--f-num);font-weight:600;font-size:11.5px;letter-spacing:.02em}
+.tag.deal{background:var(--deal-bg);color:var(--deal)}
+.tag.club{background:var(--track);color:var(--ink)}
+.tag.none{background:var(--track);color:var(--muted)}
+.scell.isdeal{border-color:var(--deal)}
+
+/* totals */
+.tot{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:1px;min-width:0}
+.tot .k{font-family:var(--f-num);font-weight:600;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.tot .v{font-family:var(--f-display);font-weight:800;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+.tot .s{font-size:12px;color:var(--muted);font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.tot.strong{border-color:var(--ink)}
+.tot.ghost{background:transparent;border-style:dashed;justify-content:center}
+.tot.ghost .s{font-size:12.5px}
+
+.drive{margin-top:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.drive h3{text-align:center;margin:0 0 6px;font-family:var(--f-num);font-weight:700;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.drive table{width:100%;border-collapse:collapse;font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:14px}
+.drive td{padding:3px 0;border-top:1px solid var(--line);vertical-align:top}
+.drive td:not(:first-child){text-align:right;white-space:nowrap;padding-left:10px}
+.drive tr:first-child td{border-top:0}
+.drive .muted{color:var(--muted)}
+.drive .note{margin:6px 0 0;font-size:12.5px;color:var(--muted);text-align:center}
+
+.util{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:center;font-size:13px;color:var(--muted)}
+.reset{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px;font-family:var(--f-num);font-weight:600;font-size:13px;cursor:pointer}
+.reset.arm{border-color:var(--over);color:var(--over)}
+
+details.how{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+details.how summary{cursor:pointer;font-family:var(--f-num);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase}
+details.how p, details.how li{font-size:13.5px;line-height:1.45;max-width:68ch}
+details.how ul{padding-left:18px;margin:6px 0}
+details.how a{color:var(--active)}
+
+.openstores{display:flex;justify-content:center;margin-top:16px}
+.bigbtn{border:1px solid var(--ink);background:var(--surface);border-radius:10px;padding:10px 18px;min-height:44px;font-family:var(--f-num);font-weight:700;font-size:15px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+
+/* store tables view */
+.viewhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.back{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;min-height:36px;font-family:var(--f-num);font-weight:600;font-size:14px;cursor:pointer}
+.stitle{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,7vw,38px);line-height:1;margin:6px 0 4px;text-transform:uppercase;text-align:center}
+.ssub{text-align:center;font-size:13px;color:var(--muted);margin:0 0 12px}
+.storeinfo{text-align:center;font-size:13px;color:var(--muted);margin:10px 0 8px;line-height:1.45}
+.storeinfo strong{color:var(--ink);font-weight:600}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.stable{width:100%;border-collapse:collapse;font-size:14px}
+.stable th{font-family:var(--f-num);font-weight:700;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.stable th.r, .stable td.r{text-align:right}
+.stable td{padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}
+.stable tr:first-child td{border-top:0}
+.stable .iname{font-family:var(--f-num);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.02em}
+.stable .iamt{font-family:var(--f-num);color:var(--muted);font-size:12.5px}
+.stable .pdesc{font-size:12.5px;color:var(--muted);line-height:1.3;margin-top:2px}
+.stable .price{font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.stable .when{display:block;font-family:var(--f-num);font-size:12px;color:var(--deal);white-space:normal}
+.stable .was{display:block;font-family:var(--f-num);font-size:12px;color:var(--muted);text-decoration:line-through}
+.stable .cost{font-family:var(--f-num);font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stable tr.isdeal .price, .stable tr.isdeal .cost{color:var(--deal)}
+.stable .nf{color:var(--muted);font-style:italic;font-family:var(--f-num)}
+
+.scanbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;min-height:36px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:var(--f-num);font-weight:700;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
+.scanbtn svg{width:18px;height:18px}
+.tag.fresh{background:var(--track);color:var(--muted)}
+.tag.scan{background:var(--save-bg);color:var(--save)}
+.tag.beat{background:var(--save);color:var(--surface)}
+.scell.stale{opacity:.55}
+.tot.wide{grid-column:1 / -1}
+.tot .v.save{color:var(--save)} .tot .v.over{color:var(--over)}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(10,14,18,.55);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.mcard{background:var(--surface);color:var(--ink);border-radius:14px;width:100%;max-width:480px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.mhead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mhead h3{margin:0;font-family:var(--f-num);font-size:18px;text-transform:uppercase;letter-spacing:.05em}
+.xbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:36px;height:36px;font-size:20px;cursor:pointer}
+.mprev{width:100%;max-height:240px;object-fit:contain;border-radius:8px;background:var(--track)}
+.mstatus{font-size:13px;color:var(--muted);text-align:center}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mfield{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mfield.full{grid-column:1 / -1}
+.mfield label{font-family:var(--f-num);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mfield input,.mfield select{font:inherit;font-size:16px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0;width:100%}
+.mcheck{font-size:13px;border-radius:8px;padding:6px 8px;text-align:center}
+.mcheck.ok{background:var(--save-bg);color:var(--save)} .mcheck.bad{background:var(--over-bg);color:var(--over)}
+.mcompare{font-size:14px;text-align:center;line-height:1.4}
+.mactions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.mbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;min-height:42px;cursor:pointer;font-family:var(--f-num);font-weight:700;font-size:14px}
+.mbtn.primary{background:var(--active);border-color:var(--active);color:var(--active-ink)}
+.mbtn:disabled{opacity:.5;cursor:default}
+.copybox{width:100%;font:inherit;font-size:13px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.history{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.history h3{margin:0 0 8px;text-align:center;font-family:var(--f-num);font-weight:700;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.hrow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.hrow:first-of-type{border-top:0}
+.hthumb{width:56px;height:56px;border-radius:6px;object-fit:cover;background:var(--track);flex:0 0 auto}
+.htext{flex:1 1 auto;min-width:0;font-size:13.5px;line-height:1.35}
+.htext .hmeta{font-size:12px;color:var(--muted)}
+.hbtns{display:flex;flex-direction:column;gap:4px;flex:0 0 auto}
+.hbtns button{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px 8px;font-family:var(--f-num);font-weight:600;font-size:12px;cursor:pointer}
+.hbtns button.arm{border-color:var(--over);color:var(--over)}
+.hempty{font-size:13px;color:var(--muted);text-align:center}
+@media (min-width:640px){
+  .vals{width:80px} .vals .left{font-size:19px}
+  .scell .cost{font-size:19px} .scell .desc{font-size:13px}
+  .row{gap:12px} .board{gap:10px}
+}
+@media (prefers-reduced-motion: reduce){.gauge .lab.top{transition:none}}
+</style>
+
+<div class="wrap">
+  <div class="topbar">
+    <button class="scanbtn" id="scanBtn" type="button" aria-label="Scan a meat tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Scan</button>
+    <input type="file" accept="image/*" capture="environment" id="scanInput" hidden>
+    <button class="who" id="whoBtn" data-who="moo" aria-label="Driving from Moo's house. Tap to switch to Kake's house.">Moo</button>
+  </div>
+
+  <section id="mainView">
+    <header>
+      <button class="title-btn" id="openFlyer" aria-label="Open the Cattleman's flyer"><h1>Cattleman's Bundle Savings</h1></button>
+      <div class="asof">Original · Michigan store prices checked Oct 19, 2026 · Fill Your Freezer Bundle, $379.90</div>
+    </header>
+
+    <div class="verdict">
+      <span class="big num">—</span>
+      <span class="small"></span>
+    </div>
+
+    <div class="board" id="board">
+      <div class="row colhead">
+        <div class="headbox">
+          <h2>Bundle · tap to use 1 lb</h2>
+        </div>
+        <div class="headbox">
+          <h2>Store prices</h2>
+          <div class="onstrip" id="onStrip"></div>
+        </div>
+      </div>
+      <div id="rows" class="board"></div>
+      <div class="verdict" aria-live="polite">
+        <span class="big num">—</span>
+        <span class="small"></span>
+      </div>
+      <div class="toggles" role="group" aria-label="Stores">
+        <div class="storegroup"><span class="glabel">Membership</span><div class="gbtns">
+          <button class="tog" id="t-bjs" aria-pressed="false">BJ's</button>
+          <button class="tog stack" id="t-costco" aria-pressed="false">Costco<span class="tsub">no prices online</span></button>
+          <button class="tog" id="t-sams" aria-pressed="false">Sam's Club</button>
+        </div></div>
+        <div class="storegroup"><span class="glabel">&nbsp;</span><div class="gbtns">
+          <button class="tog" id="t-aldi" aria-pressed="false">ALDI</button>
+          <button class="tog" id="t-kroger" aria-pressed="false">Kroger</button>
+          <button class="tog" id="t-meijer" aria-pressed="false">Meijer</button>
+          <button class="tog" id="t-walmart" aria-pressed="false">Walmart</button>
+        </div></div>
+      </div>
+      <div class="toggles" role="group" aria-label="Price options">
+        <button class="tog" id="tDeal" aria-pressed="false">Deals</button>
+        <button class="tog" id="tCar" aria-pressed="false" aria-label="Drive costs">
+          <svg viewBox="0 0 24 16" aria-hidden="true"><path fill="currentColor" d="M5.2 2.6C5.6 1.6 6.6 1 7.7 1h8.6c1.1 0 2.1.6 2.5 1.6l1.6 3.6c1.4.3 2.6 1.5 2.6 3V12c0 .6-.4 1-1 1h-1.1a2.9 2.9 0 0 1-5.6 0H8.7a2.9 2.9 0 0 1-5.6 0H2c-.6 0-1-.4-1-1V9.2c0-1.5 1.1-2.7 2.6-3l1.6-3.6Zm2.5.4c-.3 0-.6.2-.7.5L5.9 6h12.2l-1.1-2.5c-.1-.3-.4-.5-.7-.5H7.7ZM5.9 11.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Zm12.2 0a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2Z"/></svg>
+        </button>
+        <button class="tog" id="tPotato" aria-pressed="false" aria-label="Count a 10 lb bag of potatoes">
+          <svg viewBox="0 0 24 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M3.2 9.6C2.4 6.2 5 3 9.2 2.5c2.5-.3 4.3.5 6.5.3 3.4-.3 6.2 1.5 6 4.5-.2 3.4-3.6 6-8.2 6.5-4.8.5-9.4-.8-10.3-4.2Z"/><g fill="currentColor"><circle cx="8" cy="6.2" r=".95"/><circle cx="13.6" cy="5.4" r=".95"/><circle cx="11" cy="9.9" r=".95"/><circle cx="17" cy="8.8" r=".95"/></g></svg>
+          <span id="potatoPrice">10 lb</span>
+        </button>
+      </div>
+      <div class="row">
+        <div class="tot"><span class="k">Bundle price</span><span class="v num">$379.90</span><span class="s" id="bundleSub">locked split below</span></div>
+        <div class="tot"><span class="k">Store meat total</span><span class="v num" id="meatTotal">—</span><span class="s" id="meatSub"></span></div>
+      </div>
+      <div class="row">
+        <div class="tot"><span class="k">Value left</span><span class="v num" id="valueLeft">—</span><span class="s" id="valueSub"></span></div>
+        <div class="tot" id="driveBox"><span class="k">Driving</span><span class="v num" id="driveCost">—</span><span class="s" id="driveSub"></span></div>
+      </div>
+      <div class="row">
+        <div class="tot"><span class="k">Used so far</span><span class="v num" id="usedVal">—</span><span class="s" id="usedSub"></span></div>
+        <div class="tot strong"><span class="k" id="grandK">Store total</span><span class="v num" id="grand">—</span><span class="s" id="grandSub"></span><span class="s" id="grandStores"></span></div>
+      </div>
+      <div class="row">
+        <div class="tot wide"><span class="k">Purchases vs bundle</span><span class="v num" id="tallyVal">—</span><span class="s" id="tallySub">Scan what you buy to see whether the bundle beat the store.</span></div>
+      </div>
+    </div>
+
+    <div class="drive" id="drivePanel" hidden>
+      <h3 id="driveTitle">Drive cost</h3>
+      <table><tbody id="driveRows"></tbody></table>
+      <p class="note" id="driveNote"></p>
+    </div>
+
+    <div class="util">
+      <button class="reset" id="resetBtn">Refill all gauges</button>
+      <span id="saveState">Loading saved gauges…</span>
+    </div>
+
+    <details class="how">
+      <summary>How these numbers work</summary>
+      <ul>
+        <li><strong>Bundle values are locked.</strong> Each item's share of $379.90 comes from the deal-based split in the first comparison, so it reflects how the items are valued relative to each other. Price updates and button presses never change these numbers. The breakfast sausage slot is worth $11.42 whether you pick links or patties.</li>
+        <li><strong>How each item's bundle value was figured.</strong> Cattleman's sells the bundle for one price, $379.90, with no price per item. To give each meat a value, the first comparison priced every item at the best local deal found that week. Each item then got the same share of $379.90 as its share of that deal-priced total. For example, the sirloin was about a quarter of the deal-priced total, so it gets about a quarter of the bundle price ($99.90). The bundle's overall discount or markup is spread evenly across every item rather than landing on one or two of them.</li>
+        <li><strong>Why these values are reasonable.</strong> Deal prices are what a careful shopper actually pays, so the split follows real store prices instead of guesses. Pricier cuts like sirloin and stew carry more of the bundle's value, and cheap items like leg quarters carry less, the same way they would at the store. The values are still estimates: they come from one week's deals, and Cattleman's own per-item cost could split a little differently. They're locked so the value-left numbers stay steady and comparable over time.</li>
+        <li><strong>Gauges</strong> drain 1 lb per tap. Value left is the locked value times the share of pounds left. Spare ribs count by pound (3 slabs, about 9 lb). Use "+1 lb" to undo a mis-tap. Breakfast has a Links/Patties switch inside its button; its store price stays blank until one is picked. Each person's gauges, sausage pick, store picks and Moo/Kake choice save to their own account when signed in, so two people never share a freezer. Signed out, they save on that device only.</li>
+        <li><strong>Michigan prices only.</strong> Every price was read on Oct 19, 2026 from each store's own website, set to the stores near Moo: Kroger (28250 Dequindre Rd, Warren), Meijer (29505 Mound Rd, Warren), Walmart (29176 Van Dyke Ave, Warren), ALDI (29475 Mound Rd, Warren, in-store prices), Sam's Club (31020 John R Rd, Madison Heights) and BJ's (29101 John R Rd, Madison Heights). Costco doesn't post its warehouse meat prices online, so it has no prices yet.</li>
+        <li><strong>Store buttons</strong> all start off. Press a store to add its regular shelf prices; each row shows the cheapest price among the stores you have on. BJ's, Costco and Sam's Club are membership stores (memberships not included). Sale prices, Walmart rollbacks and ALDI price cuts count as deals, not regular prices. Package-priced sausage is extended at its per-pound rate to 3 lb.</li>
+        <li><strong>Deals</strong> uses only the original deals that were confirmed in a Michigan ad or on a Warren store's page: Meijer 80% lean ground beef $4.79/lb (Oct 21–27), Walmart chicken breast rollback $2.23/lb, Meijer assorted bone-in chops $1.79/lb and spare ribs $2.79/lb (Oct 14–20), and Meijer blade steak $2.99/lb (no end date posted). Kroger's $8.99 petite sirloin was dropped: Kroger's Oct 21–27 Michigan ad isn't posted yet and the Warren Kroger doesn't list petite sirloin. Other current deals show only in the store tables. An item keeps its regular price when no deal beats it.</li>
+        <li><strong>Moo and Kake</strong> switch whose home the driving starts from. Each uses the closest location of each store. Prices stay the ones from the Warren-area stores; the same chain usually prices the same nearby, but Walmart can differ a little from store to store.</li>
+        <li><strong>Driving</strong> uses Moo's 2004 Honda Accord (about 24 mpg) or Kake's 2014 GMC Terrain (about 26 mpg), metro Detroit regular gas at $4.54/gal (AAA, Oct 19, 2026), plus about 10¢ a mile for wear (AAA's maintenance estimate). Distances are straight-line miles times 1.3 for the road grid, at 28 mph. Regular prices are one round trip through every store; with Deals on, each store is its own round trip, since deals run on different dates. Cattleman's is counted as free to reach.</li>
+        <li><strong>Potatoes</strong> adds a 10 lb bag of russet potatoes to the store side at the cheapest regular price among the stores you have on, so the bundle's savings go up by that amount. Its store joins the drive when the car is on.</li>
+      </ul>
+      <p>Sources: <a href="https://www.kroger.com/stores/grocery/mi/warren/universal-mall/018/00602" target="_blank" rel="noopener">Kroger Universal Mall</a>, <a href="https://www.kroger.com/weeklyad" target="_blank" rel="noopener">Kroger weekly ad</a>, <a href="https://www.meijer.com/shopping/weekly-ad" target="_blank" rel="noopener">Meijer weekly ads</a>, <a href="https://www.walmart.com/store/4424" target="_blank" rel="noopener">Walmart Warren Supercenter</a>, <a href="https://www.aldi.us/store/aldi/storefront" target="_blank" rel="noopener">ALDI</a>, <a href="https://www.samsclub.com/club/6659-madison-heights-mi" target="_blank" rel="noopener">Sam's Club Madison Heights</a>, <a href="https://www.bjs.com/clubLocator" target="_blank" rel="noopener">BJ's Madison Heights</a>, <a href="https://www.costco.com/" target="_blank" rel="noopener">Costco</a>, <a href="https://www.clickondetroit.com/news/local/2026/10/19/michigan-gas-prices-drop-15-cents-from-last-week/" target="_blank" rel="noopener">AAA gas prices</a>, <a href="https://newsroom.aaa.com/wp-content/uploads/2025/09/AAA-Brochure-Your-Driving-Cost-9.2025.pdf" target="_blank" rel="noopener">AAA driving costs</a>.</p>
+    </details>
+
+    <div class="openstores">
+      <button class="bigbtn" id="openStores">Individual store tables</button>
+    </div>
+  </section>
+
+  <section id="flyerView" hidden>
+    <div class="viewhead"><button class="back" id="flyerBack">← Back to bundle</button></div>
+    <div class="flyer"><img src="flyer-1.jpg" alt="Cattleman's bundle flyer, page 1"><img src="flyer-2.jpg" alt="Cattleman's bundle flyer, page 2"></div>
+  </section>
+
+  <section id="storesView" hidden>
+    <div class="viewhead">
+      <button class="back" id="backBtn">← Back to bundle</button>
+    </div>
+    <h2 class="stitle">Store tables</h2>
+    <p class="ssub">Every bundle item at one store, priced for the bundle amount · checked Oct 19, 2026</p>
+    <div class="toggles" role="group" aria-label="Choose a store" id="storeBtns"></div>
+    <div class="toggles">
+      <button class="tog" id="sDeal" aria-pressed="false">Deals</button>
+    </div>
+    <div class="storeinfo" id="storeInfo"></div>
+    <div class="tablewrap">
+      <table class="stable">
+        <thead><tr><th>Item</th><th class="r">Price</th><th class="r">Bundle amount</th></tr></thead>
+        <tbody id="storeRows"></tbody>
+      </table>
+    </div>
+    <div class="history"><h3 id="histTitle">Scans</h3><div id="histRows"></div></div>
+  </section>
+
+  <div class="modal" id="scanModal" hidden role="dialog" aria-modal="true" aria-labelledby="scanTitle">
+    <div class="mcard">
+      <div class="mhead"><h3 id="scanTitle">Review meat tag</h3><button class="xbtn" id="scanClose" aria-label="Close">×</button></div>
+      <img id="scanPreview" class="mprev" alt="Photo of the meat tag">
+      <div class="mstatus" id="scanStatus"></div>
+      <div class="mgrid">
+        <div class="mfield"><label for="fStore">Store</label><select id="fStore"></select></div>
+        <div class="mfield"><label for="fItem">Bundle item</label><select id="fItem"></select></div>
+        <div class="mfield"><label for="fPer">Price per lb ($)</label><input id="fPer" type="number" inputmode="decimal" step="0.01" min="0"></div>
+        <div class="mfield"><label for="fLbs">Net weight (lb)</label><input id="fLbs" type="number" inputmode="decimal" step="0.001" min="0"></div>
+        <div class="mfield"><label for="fTotal">Total paid ($)</label><input id="fTotal" type="number" inputmode="decimal" step="0.01" min="0"></div>
+        <div class="mfield"><label for="fDate">Date</label><input id="fDate" type="date"></div>
+      </div>
+      <div class="mcheck" id="scanCheck" hidden></div>
+      <div class="mcompare" id="scanCompare"></div>
+      <div class="mactions">
+        <button class="mbtn" id="scanRetake" type="button">Retake photo</button>
+        <button class="mbtn primary" id="scanSave" type="button">Save purchase</button>
+        <button class="mbtn" id="scanShare" type="button" hidden>Copy share text</button>
+      </div>
+      <textarea class="copybox" id="copyBox" rows="4" hidden readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===== LOCKED bundle values (deal-based split of $379.90). Do not recalculate. ===== */
+var LOCKED = Object.freeze({
+  sirloin:99.90, stew:88.56, hamburger:53.23, chicken:24.78, chops:19.89,
+  porksteak:33.23, legq:9.60, ribs:27.90, polish:11.39, breakfast:11.42
+});
+
+var ITEMS = [
+  {id:"sirloin",  name:"Sirloin steak",  lbs:10},
+  {id:"stew",     name:"Stew meat",      lbs:10},
+  {id:"hamburger",name:"Hamburger",      lbs:10},
+  {id:"chicken",  name:"Chicken breast", lbs:10},
+  {id:"chops",    name:"Pork chops",     lbs:10},
+  {id:"porksteak",name:"Pork steaks",    lbs:10},
+  {id:"legq",     name:"Leg quarters",   lbs:10},
+  {id:"ribs",     name:"Spare ribs",     lbs:9, sub:"3 slabs"},
+  {id:"polish",   name:"Polish sausage", lbs:3},
+  {id:"breakfast",name:"Breakfast",      lbs:3}
+];
+var QTY = {sirloin:10, stew:10, hamburger:10, chicken:10, chops:10, porksteak:10, legq:10, ribs:9, polish:3, links:3, patties:3, potato:10};
+
+/* ===== Homes and stores ===== */
+var HOMES = {
+  moo:  {label:"Moo",  car:"2004 Honda Accord", mpg:24, at:[42.5000369,-83.0781905]},
+  kake: {label:"Kake", car:"2014 GMC Terrain",  mpg:26, at:[42.6293233,-83.2096442]}
+};
+var STORE_ORDER = ["bjs","costco","sams","aldi","kroger","meijer","walmart"];
+var STORES = {
+  kroger: {name:"Kroger", club:false, priced:"Kroger Universal Mall, 28250 Dequindre Rd, Warren",
+    moo:{at:[42.4995592,-83.0830657], addr:"28250 Dequindre Rd, Warren"},
+    kake:{at:[42.6805325,-83.1514676], addr:"65 S Livernois Rd, Rochester Hills"}},
+  meijer: {name:"Meijer", club:false, priced:"Meijer, 29505 Mound Rd, Warren",
+    moo:{at:[42.5098834,-83.049324], addr:"29505 Mound Rd, Warren"},
+    kake:{at:[42.6434377,-83.2060397], addr:"3610 Marketplace Cir, Rochester Hills"}},
+  walmart: {name:"Walmart", club:false, priced:"Walmart Supercenter #4424, 29176 Van Dyke Ave, Warren",
+    moo:{at:[42.5083656,-83.0266189], addr:"29176 Van Dyke Ave, Warren"},
+    kake:{at:[42.6434813,-83.1980555], addr:"2500 S Adams Rd, Rochester Hills"}},
+  aldi: {name:"ALDI", club:false, priced:"ALDI, 29475 Mound Rd, Warren (in-store prices)",
+    moo:{at:[42.508427,-83.048703], addr:"29475 Mound Rd, Warren"},
+    kake:{at:[42.641141,-83.202428], addr:"2636 S Adams Rd, Rochester Hills"}},
+  sams: {name:"Sam's Club", club:true, priced:"Sam's Club #6659, 31020 John R Rd, Madison Heights",
+    moo:{at:[42.5211437,-83.1047056], addr:"31020 John R Rd, Madison Heights"},
+    kake:{at:[42.7064771,-83.2825983], addr:"4350 Joslyn Rd, Auburn Hills"}},
+  costco: {name:"Costco", club:true, priced:"Costco doesn't post its warehouse meat prices online",
+    moo:{at:[42.5155073,-83.1176495], addr:"30550 Stephenson Hwy, Madison Heights"},
+    kake:{at:[42.607109,-83.2928695], addr:"2343 S Telegraph Rd, Bloomfield Township"}},
+  bjs: {name:"BJ's", club:true, priced:"BJ's Wholesale Club, 29101 John R Rd, Madison Heights",
+    moo:{at:[42.5063291,-83.1076123], addr:"29101 John R Rd, Madison Heights"},
+    kake:{at:[42.5063291,-83.1076123], addr:"29101 John R Rd, Madison Heights"}}
+};
+
+/* ===== Michigan prices, Oct 19, 2026 ===== */
+function R(desc, per){ return {desc:desc, per:per}; }
+function F(desc, flat){ return {desc:desc, flat:flat}; }
+function D(o, when, orig){ o.when = when; o.orig = !!orig; return o; }
+var AD1 = "weekly ad Oct 14–20", AD2 = "weekly ad Oct 21–27";
+
+var PRICES = {
+  sirloin: {
+    kroger:{reg:R("Choice sirloin tip steak", 11.99)},
+    meijer:{reg:R("Certified Angus top sirloin, family pack", 14.99), deal:D(R("Certified Angus top sirloin, family pack", 9.99), AD1)},
+    walmart:{reg:R("Choice Angus top sirloin, family pack", 11.94)},
+    aldi:{reg:R("Choice Black Angus petite sirloin", 9.99), deal:D(R("Choice Black Angus petite sirloin", 8.99), "price cut, seen Oct 19")},
+    sams:{reg:R("Member's Mark Choice Angus top sirloin steaks", 9.97)},
+    bjs:{reg:R("Wellsley Farms Choice petite top sirloin steak", 9.99)}
+  },
+  stew: {
+    kroger:{reg:R("Kroger Choice beef for stew", 10.00)},
+    meijer:{reg:R("Certified Angus stew meat, family pack", 9.99), deal:D(R("Certified Angus stew meat, buy one get one 50% off", 7.4925), "BOGO 50% off, " + AD2)},
+    walmart:{reg:R("Beef stew meat, family pack", 8.76)},
+    aldi:{reg:R("Choice Black Angus stew meat", 7.69), deal:D(R("Choice Black Angus stew meat", 6.99), "price cut, seen Oct 19")},
+    sams:{reg:R("Member's Mark Choice Angus stew meat", 7.97)},
+    bjs:{reg:R("Wellsley Farms Choice beef stew", 7.99)}
+  },
+  hamburger: {
+    kroger:{reg:R("Kroger 80/20 ground beef, 3 lb roll at $19.79", 19.79/3)},
+    meijer:{reg:R("Meijer 80/20 ground beef, family pack", 6.99), deal:D(R("Meijer 80% lean ground beef, 3 lb pack or larger", 4.79), AD2, true)},
+    walmart:{reg:R("80/20 ground chuck, 3 lb roll at $16.43", 16.43/3), deal:D(F("80/20 ground chuck, 10 lb roll", 49.43), "rollback, no end date")},
+    aldi:{reg:R("80/20 ground beef", 6.19), deal:D(R("80/20 ground beef", 5.29), "price cut, seen Oct 19")},
+    sams:{reg:R("Member's Mark 80/20 ground chuck roll", 5.72)},
+    bjs:{reg:R("Wellsley Farms 80% lean ground beef, 10 lb", 5.39)}
+  },
+  chicken: {
+    kroger:{reg:R("Heritage Farm boneless skinless breasts", 2.59), deal:D(R("Heritage Farm boneless skinless breasts", 1.99), AD1)},
+    meijer:{reg:R("Meijer boneless skinless breasts, family pack", 2.69), deal:D(R("Meijer boneless skinless breasts, family pack", 2.59), AD1)},
+    walmart:{reg:R("Freshness Guaranteed boneless skinless breasts", 2.57), deal:D(R("Freshness Guaranteed boneless skinless breasts", 2.23), "rollback, no end date", true)},
+    aldi:{reg:R("Boneless skinless breasts, family pack", 2.19), deal:D(R("Boneless skinless breasts, family pack", 1.99), "price cut, seen Oct 19")},
+    sams:{reg:R("Member's Mark boneless skinless breasts", 2.88)},
+    bjs:{reg:R("Wellsley Farms boneless skinless breasts", 2.19)}
+  },
+  chops: {
+    kroger:{reg:R("Kroger thin-cut bone-in chops, 18.4 oz at $5.00", 5/18.4*16), deal:D(R("Kroger assorted end chops, bone-in", 2.99), AD1)},
+    meijer:{reg:R("Meijer assorted bone-in pork chops", 3.99), deal:D(R("Meijer assorted bone-in pork chops", 1.79), AD1, true)},
+    walmart:{reg:R("Assorted loin chops, bone-in", 3.47)},
+    aldi:{reg:R("Assorted pork chops", 2.99), deal:D(R("Assorted pork chops", 2.79), "price cut, seen Oct 19")},
+    sams:{reg:R("Member's Mark bone-in pork chops", 2.52)},
+    bjs:{reg:R("Wellsley Farms assorted bone-in loin chops", 2.59)}
+  },
+  porksteak: {
+    kroger:{reg:R("Bone-in pork shoulder steak", 4.69), deal:D(R("Kroger bone-in shoulder steaks, 3-pack", 3.99), AD1)},
+    meijer:{reg:R("Meijer bone-in pork shoulder blade steak", 4.69), deal:D(R("Meijer bone-in pork shoulder blade steak", 2.99), "sale, no end date posted", true)},
+    walmart:{reg:R("Pork butt steak, bone-in, family pack", 3.77), deal:D(R("Pork butt steak, bone-in, family pack", 2.97), "rollback, no end date")},
+    sams:{reg:R("Member's Mark bone-in shoulder blade steaks", 3.87)},
+    bjs:{reg:R("Wellsley Farms steak-ready bone-in pork butt, whole (you slice)", 2.09)}
+  },
+  legq: {
+    kroger:{reg:F("Heritage Farm leg quarters, 10 lb bag", 7.99)},
+    walmart:{reg:F("Tyson leg quarters, 10 lb bag", 8.64)},
+    aldi:{reg:R("Kirkwood leg quarters", 1.19)}
+  },
+  ribs: {
+    kroger:{reg:R("Kroger St. Louis style spareribs", 3.99), deal:D(R("Kroger St. Louis style spareribs ($1.99/lb with digital coupon)", 2.99), AD1)},
+    meijer:{reg:R("Meijer pork spare ribs", 3.49), deal:D(R("Meijer pork spare ribs", 2.79), AD1, true)},
+    walmart:{reg:R("Prairie Fresh pork spareribs", 2.58)},
+    aldi:{deal:D(R("Smithfield St. Louis pork ribs", 2.49), "ALDI Find, limited time")},
+    sams:{reg:R("Member's Mark whole spare ribs", 2.98)},
+    bjs:{reg:R("Wellsley Farms St. Louis style spare ribs", 3.29)}
+  },
+  polish: {
+    kroger:{reg:R("Kroger Polska kielbasa, 14 oz at $3.49", 3.49/14*16), deal:D(R("Kroger Polska kielbasa, 14 oz at $3.29", 3.29/14*16), AD1)},
+    meijer:{reg:R("Eckrich Polska kielbasa, 14 oz at $3.49", 3.49/14*16), deal:D(R("Eckrich Polska kielbasa, 14 oz at $3.29", 3.29/14*16), "sale, seen Oct 19")},
+    walmart:{reg:R("Great Value Polska kielbasa, 14 oz at $3.23", 3.23/14*16)},
+    aldi:{reg:R("Parkview Polska kielbasa, 14 oz at $2.99", 2.99/14*16)},
+    sams:{reg:F("Kowalski stadium kielbasa, 3 lb", 16.24)},
+    bjs:{reg:F("Hillshire Farm Polska kielbasa, 48 oz", 11.99), deal:D(F("Hillshire Farm Polska kielbasa, 48 oz", 8.99), "$3 off coupon, seen Oct 19")}
+  },
+  links: {
+    kroger:{reg:R("Kroger original links, 12 oz at $2.99", 2.99/12*16)},
+    meijer:{reg:R("Meijer original links, 12 oz at $2.59", 2.59/12*16)},
+    walmart:{reg:R("Great Value original links, 12 oz at $2.57", 2.57/12*16)},
+    aldi:{reg:R("Original breakfast links, 12 oz at $2.39", 2.39/12*16)},
+    sams:{reg:R("Bob Evans original links, 20 oz at $5.36", 5.36/20*16)},
+    bjs:{reg:R("Smithfield original links, 3 × 12 oz at $10.99", 10.99/36*16)}
+  },
+  patties: {
+    kroger:{reg:R("Kroger original patties, 12 oz at $2.99", 2.99/12*16)},
+    meijer:{reg:R("Meijer original patties, 12 oz at $2.59", 2.59/12*16)},
+    walmart:{reg:R("Great Value original patties, 12 oz at $2.57", 2.57/12*16)},
+    aldi:{reg:R("Original breakfast patties, 12 oz at $2.39", 2.39/12*16)},
+    bjs:{reg:R("Smithfield original patties, 3 × 12 oz at $10.99", 10.99/36*16)}
+  },
+  potato: {
+    kroger:{reg:F("Kroger russet potatoes, 10 lb bag", 5.00)},
+    meijer:{reg:F("Russet potatoes, 10 lb bag", 5.49), deal:D(F("Russet potatoes, two 5 lb bags at $2.49", 4.98), AD1)},
+    walmart:{reg:F("Russet potatoes, 10 lb bag", 5.78), deal:D(F("Russet potatoes, 10 lb bag", 4.54), "rollback, no end date")},
+    aldi:{reg:F("Russet potatoes, 10 lb bag", 4.49)},
+    sams:{reg:F("Russet potatoes, 10 lb bag", 5.76)},
+    bjs:{reg:F("Wellsley Farms russet potatoes, 10 lb bag", 6.99)}
+  }
+};
+
+var TABLE_ROWS = [
+  ["sirloin","Sirloin steak","10 lb"], ["stew","Stew meat","10 lb"], ["hamburger","Hamburger","10 lb"],
+  ["chicken","Chicken breast","10 lb"], ["chops","Pork chops","10 lb"], ["porksteak","Pork steaks","10 lb"],
+  ["legq","Leg quarters","10 lb"], ["ribs","Spare ribs","about 9 lb"], ["polish","Polish sausage","3 lb"],
+  ["links","Breakfast links","3 lb"], ["patties","Breakfast patties","3 lb"], ["potato","Potatoes","10 lb bag"]
+];
+
+/* Driving assumptions */
+var GAS = 4.54, WEAR_PER_MI = 0.10, ROAD = 1.3, MPH = 28;
+
+/* ===== state ===== */
+var opts = {on:{bjs:false, costco:false, sams:false, aldi:false, kroger:false, meijer:false, walmart:false}, deals:false, car:false, potato:false};
+var state = {left:{}, sausage:null, who:"moo"};
+ITEMS.forEach(function(it){ state.left[it.id] = it.lbs; });
+var view = {store:"kroger", deals:false};
+
+function money(n){ return "$" + n.toFixed(2); }
+function round2(n){ return Math.round(n*100)/100; }
+function costOf(o, key){ return round2(o.flat != null ? o.flat : o.per * QTY[key]); }
+function unitText(o, key){ return o.flat != null ? "package" : money(o.per) + "/lb × " + QTY[key] + " lb"; }
+
+function storeOn(s){ return !!opts.on[s]; }
+/* Cheapest allowed offer for an item on the main page. Deals here are only the original confirmed ones. */
+/* ===== in-person scans (shared) ===== */
+var SCANS = [], NAMES = {}, myId = null;
+var BASE_SEEN = "2026-10-19";
+function latestScan(key, s){
+  var best = null;
+  SCANS.forEach(function(x){ if (x.item === key && x.store === s && (!best || x.date > best.date || (x.date === best.date && (x.createdAt||"") > (best.createdAt||"")))) best = x; });
+  return best;
+}
+function getP(key, s){
+  var base = (PRICES[key] && PRICES[key][s]) || null;
+  var sc = latestScan(key, s);
+  if (!sc) return base;
+  var out = {reg:{desc:"In-person scan · " + (sc.lbs ? sc.lbs + " lb at " : "") + money(sc.per) + "/lb", per:sc.per, scan:true, seen:sc.date}};
+  if (base && base.deal) out.deal = base.deal;
+  return out;
+}
+function bundlePerLb(key){
+  var id = (key === "links" || key === "patties") ? "breakfast" : key;
+  var it = ITEMS.filter(function(i){ return i.id === id; })[0];
+  return it ? LOCKED[id] / it.lbs : null;
+}
+function daysOld(d){ var t = new Date(); t.setHours(0,0,0,0); var x = new Date(d + "T00:00:00"); return Math.round((t - x) / 86400000); }
+function prettyDate(d){ var x = new Date(d + "T00:00:00"); return isNaN(x) ? d : x.toLocaleDateString(undefined, {month:"short", day:"numeric", year: (x.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined)}); }
+function freshTag(o){
+  var seen = o.seen || BASE_SEEN, n = daysOld(seen);
+  var age = n <= 0 ? "today" : (n === 1 ? "1 day old" : n + " days old");
+  if (o.scan) return '<span class="tag scan">In-person scan · ' + prettyDate(seen) + '</span>';
+  return '<span class="tag fresh">' + age + '</span>';
+}
+function esc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+function pick(key){
+  var best = null;
+  STORE_ORDER.forEach(function(s){
+    if (!storeOn(s)) return;
+    var p = getP(key, s); if (!p) return;
+    var cands = [];
+    if (p.reg) cands.push({o:p.reg, deal:false});
+    if (opts.deals && p.deal && p.deal.orig) cands.push({o:p.deal, deal:true});
+    cands.forEach(function(c){
+      var cost = costOf(c.o, key);
+      if (!best || cost < best.cost - 1e-9) best = {o:c.o, store:s, cost:cost, deal:c.deal};
+    });
+  });
+  return best;
+}
+
+function milesBetween(a, b){
+  var Rr = 3958.8, r = Math.PI/180;
+  var dLa = (b[0]-a[0])*r, dLo = (b[1]-a[1])*r;
+  var h = Math.sin(dLa/2)*Math.sin(dLa/2) + Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)*Math.sin(dLo/2);
+  return 2*Rr*Math.asin(Math.sqrt(h))*ROAD;
+}
+function permutations(arr){
+  if (arr.length <= 1) return [arr.slice()];
+  var out = [];
+  arr.forEach(function(x, i){
+    var rest = arr.slice(0, i).concat(arr.slice(i+1));
+    permutations(rest).forEach(function(p){ out.push([x].concat(p)); });
+  });
+  return out;
+}
+function driveFor(stores){
+  var home = HOMES[state.who].at;
+  if (!stores.length) return {mi:0, legs:[], order:[], mode: opts.deals ? "separate" : "loop"};
+  if (opts.deals){
+    var legs = stores.map(function(s){ return {store:s, mi:2*milesBetween(home, STORES[s][state.who].at)}; });
+    return {mi:legs.reduce(function(a,l){ return a + l.mi; }, 0), legs:legs, mode:"separate"};
+  }
+  var best = null;
+  permutations(stores).forEach(function(p){
+    var pts = [home].concat(p.map(function(s){ return STORES[s][state.who].at; })).concat([home]);
+    var m = 0; for (var i=0;i<pts.length-1;i++) m += milesBetween(pts[i], pts[i+1]);
+    if (!best || m < best.mi) best = {mi:m, order:p};
+  });
+  return {mi:best.mi, order:best.order, mode:"loop"};
+}
+
+/* ===== build bundle rows ===== */
+var rowsEl = document.getElementById("rows");
+var SEG = '<span class="seg" role="group" aria-label="Breakfast sausage choice"><button type="button" data-s="links">Links</button><button type="button" data-s="patties">Patties</button></span>';
+function lab(kind){
+  return '<span class="lab ' + kind + '"' + (kind === "top" ? ' aria-hidden="true"' : '') + '><span class="inner"><span class="line"><span class="nm"></span>' + (kind === "ctl" ? SEG : '') + '</span><span class="lft"></span></span></span>';
+}
+var refs = {};
+ITEMS.forEach(function(it){
+  var row = document.createElement("div"); row.className = "row";
+  row.innerHTML =
+    '<div class="bcell">' +
+      '<div class="gauge" role="button" tabindex="0" id="g-'+it.id+'">' +
+        lab("base") + lab("top") + (it.id === "breakfast" ? lab("ctl") : "") +
+      '</div>' +
+      '<div class="vals">' +
+        '<span class="locked"></span>' +
+        '<span class="left"></span>' +
+        '<button class="plus" type="button" id="p-'+it.id+'" aria-label="Add back 1 lb of '+it.name+'">+1 lb</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="scell">' +
+      '<span class="store"></span><span class="cost"></span>' +
+      '<span class="dblock"><span class="desc"></span><span class="meta"></span></span>' +
+    '</div>';
+  row.innerHTML = row.innerHTML.split("{SLOT}").join("");
+  rowsEl.appendChild(row);
+  var g = row.querySelector(".gauge");
+  if (it.id === "breakfast"){
+    g.querySelectorAll(".lab.base .line, .lab.top .line").forEach(function(l){
+      var sp = document.createElement("span"); sp.className = "slot";
+      sp.innerHTML = SEG.replace(/<button/g,'<span').replace(/<\/button>/g,'</span>'); l.appendChild(sp);
+    });
+    g.querySelectorAll(".lab.ctl .seg button").forEach(function(b){
+      b.addEventListener("click", function(e){ e.stopPropagation(); var v = b.getAttribute("data-s"); if (state.sausage !== v){ state.sausage = v; render(); persist(); } });
+    });
+  }
+  refs[it.id] = {
+    gauge:g, nms:row.querySelectorAll(".nm"), lfts:row.querySelectorAll(".lft"),
+    locked:row.querySelector(".locked"), left:row.querySelector(".left"), plus:row.querySelector(".plus"),
+    scell:row.querySelector(".scell"), store:row.querySelector(".store"), cost:row.querySelector(".cost"), dblock:row.querySelector(".dblock"),
+    desc:row.querySelector(".desc"), meta:row.querySelector(".meta")
+  };
+  function useOne(){ if (state.left[it.id] <= 0) return; state.left[it.id] -= 1; render(); persist(); }
+  g.addEventListener("click", useOne);
+  g.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); useOne(); } });
+  refs[it.id].plus.addEventListener("click", function(){
+    if (state.left[it.id] >= it.lbs) return;
+    state.left[it.id] += 1; render(); persist();
+  });
+});
+
+function setPressed(el, on){ el.setAttribute("aria-pressed", on ? "true" : "false"); }
+
+function render(){
+  var meat = 0, valueLeft = 0, usedStores = [];
+  var anyOn = STORE_ORDER.some(storeOn), missing = 0;
+  ITEMS.forEach(function(it){
+    var r = refs[it.id];
+    var left = state.left[it.id];
+    var pct = (left / it.lbs) * 100;
+    var nm = it.id === "breakfast" ? "Breakfast" : it.name;
+    var lftTxt = left === 0 ? "Used up" : (left + " of " + it.lbs + " lb left");
+    r.nms.forEach(function(n){ n.textContent = nm; });
+    r.lfts.forEach(function(n){ n.textContent = lftTxt; });
+    r.gauge.style.setProperty("--pct", pct + "%");
+    r.gauge.setAttribute("data-empty", left === 0 ? "true" : "false");
+    r.gauge.setAttribute("aria-label", nm + ", " + lftTxt + ". Tap to use 1 lb.");
+    var lockedVal = LOCKED[it.id];
+    var leftVal = round2(lockedVal * left / it.lbs);
+    valueLeft += leftVal;
+    r.locked.textContent = money(lockedVal) + " · " + money(lockedVal/it.lbs) + "/lb";
+    r.left.textContent = money(leftVal);
+    r.plus.disabled = left >= it.lbs;
+
+    var key = it.id === "breakfast" ? state.sausage : it.id;
+    if (it.id === "breakfast"){
+      r.gauge.querySelectorAll(".lab .seg").forEach(function(sg){
+        sg.querySelectorAll("[data-s]").forEach(function(b){ b.setAttribute("aria-pressed", state.sausage === b.getAttribute("data-s") ? "true" : "false"); });
+      });
+    }
+    r.scell.classList.remove("pick");
+    if (!anyOn){
+      r.store.textContent = ""; r.cost.textContent = "";
+      r.desc.textContent = "Pick a store"; r.meta.innerHTML = "";
+      r.scell.classList.remove("isdeal"); r.scell.classList.add("pick");
+      return;
+    }
+    if (!key){
+      r.store.textContent = ""; r.cost.textContent = "";
+      r.desc.textContent = "Pick links or patties"; r.meta.innerHTML = "";
+      r.scell.classList.remove("isdeal"); r.scell.classList.add("pick");
+      return;
+    }
+    var p = pick(key);
+    r.scell.classList.remove("missing");
+    if (!p){
+      missing++;
+      r.store.textContent = "Not carried";
+      r.cost.textContent = "";
+      r.desc.textContent = "Select another store";
+      r.meta.innerHTML = "";
+      r.scell.classList.remove("isdeal");
+      r.scell.classList.add("missing");
+      return;
+    }
+    var o = p.o;
+    meat += p.cost;
+    if (usedStores.indexOf(p.store) < 0) usedStores.push(p.store);
+    r.store.textContent = STORES[p.store].name;
+    r.cost.textContent = money(p.cost);
+    r.desc.textContent = o.desc;
+    var tag = "";
+    if (p.deal) tag = '<span class="tag deal">Deal · ' + o.when + '</span>';
+    else if (STORES[p.store].club) tag = '<span class="tag club">Club price</span>';
+    else if (opts.deals) tag = '<span class="tag none">No better deal</span>';
+    var bpl = bundlePerLb(key);
+    if (o.scan && bpl && o.per < bpl - 1e-9) tag += '<span class="tag beat">Store deal beats bundle</span>';
+    r.meta.innerHTML = '<span>' + unitText(o, key) + '</span>' + freshTag(o) + tag;
+    r.scell.classList.toggle("isdeal", !!p.deal);
+    r.scell.classList.toggle("stale", !o.scan && daysOld(o.seen || BASE_SEEN) > 21);
+  });
+  meat = round2(meat); valueLeft = round2(valueLeft);
+
+  var spud = pick("potato");
+  var spudCost = 0;
+  document.getElementById("potatoPrice").textContent = spud ? money(spud.cost) : "n/a";
+  if (opts.potato && spud){
+    spudCost = spud.cost;
+    if (usedStores.indexOf(spud.store) < 0) usedStores.push(spud.store);
+  }
+  document.getElementById("bundleSub").textContent = opts.potato && spud
+    ? "+ 10 lb potatoes (" + money(spud.cost) + " at " + STORES[spud.store].name + ")"
+    : "locked split below";
+
+  var onNames = STORE_ORDER.filter(storeOn).map(function(s){ return STORES[s].name; });
+  document.getElementById("onStrip").textContent = onNames.length ? "On: " + onNames.join(" · ") : "No stores on";
+  document.getElementById("meatTotal").textContent = money(meat);
+  document.getElementById("meatSub").textContent = (opts.deals ? "with deals" : "regular prices") + " · " + onNames.length + " stores on";
+  document.getElementById("valueLeft").textContent = money(valueLeft);
+  document.getElementById("valueSub").textContent = Math.round(valueLeft/379.90*100) + "% of the bundle left";
+  document.getElementById("usedVal").textContent = money(round2(379.90 - valueLeft));
+  var lbsLeft = ITEMS.reduce(function(a,it){ return a + state.left[it.id]; }, 0);
+  var lbsAll = ITEMS.reduce(function(a,it){ return a + it.lbs; }, 0);
+  document.getElementById("usedSub").textContent = (lbsAll - lbsLeft) + " of " + lbsAll + " lb used";
+
+  var drive = null, driveBox = document.getElementById("driveBox"), panel = document.getElementById("drivePanel");
+  if (opts.car){
+    drive = driveFor(usedStores);
+    var car = HOMES[state.who];
+    var gas = drive.mi * GAS / car.mpg, dep = drive.mi * WEAR_PER_MI, mins = Math.round(drive.mi / MPH * 60);
+    drive.cost = round2(gas + dep);
+    driveBox.className = "tot";
+    document.getElementById("driveCost").textContent = money(drive.cost);
+    document.getElementById("driveSub").textContent = drive.mi.toFixed(1) + " mi · about " + mins + " min";
+    panel.hidden = false;
+    var whoLabel = HOMES[state.who].label;
+    document.getElementById("driveTitle").textContent = "Drive cost from " + whoLabel + "'s · " + (drive.mode === "loop" ? "one round trip" : "separate trips");
+    var rows = [];
+    if (drive.mode === "loop"){
+      var names = drive.order.map(function(s){ return STORES[s].name; });
+      rows.push('<tr><td>' + whoLabel + ' → ' + names.join(" → ") + ' → ' + whoLabel + '</td><td>' + drive.mi.toFixed(1) + ' mi</td><td>' + mins + ' min</td></tr>');
+      drive.order.forEach(function(s){
+        rows.push('<tr><td class="muted">' + STORES[s].name + ': ' + STORES[s][state.who].addr + '</td><td></td><td></td></tr>');
+      });
+    } else {
+      drive.legs.forEach(function(l){
+        rows.push('<tr><td>' + STORES[l.store].name + ' round trip <span class="muted">(' + STORES[l.store][state.who].addr + ')</span></td><td>' + l.mi.toFixed(1) + ' mi</td><td>' + Math.round(l.mi/MPH*60) + ' min</td></tr>');
+      });
+    }
+    rows.push('<tr><td>Gas at ' + money(GAS) + '/gal, ' + car.car + ' at ' + car.mpg + ' mpg</td><td colspan="2">' + money(gas) + '</td></tr>');
+    rows.push('<tr><td>Wear (maintenance and tires) at ' + money(WEAR_PER_MI) + '/mi</td><td colspan="2">' + money(dep) + '</td></tr>');
+    rows.push('<tr><td><strong>Driving total</strong></td><td colspan="2"><strong>' + money(drive.cost) + '</strong></td></tr>');
+    document.getElementById("driveRows").innerHTML = rows.join("");
+    document.getElementById("driveNote").textContent = "From " + whoLabel + "'s. " + (drive.mode === "loop"
+      ? "Regular prices can all be picked up in one trip, so this is the shortest loop through each store."
+      : "Deals run on different dates, so each store is its own trip from home.");
+  } else {
+    driveBox.className = "tot ghost";
+    document.getElementById("driveCost").textContent = "";
+    document.getElementById("driveSub").textContent = "Tap the car to add gas and truck wear for these stores.";
+    panel.hidden = true;
+  }
+
+  var grand = round2(meat + spudCost + (drive ? drive.cost : 0));
+  var adds = [];
+  if (opts.potato && spud) adds.push("potatoes");
+  if (drive) adds.push("driving");
+  document.getElementById("grandK").textContent = adds.length ? "Store total with " + adds.join(" & ") : "Store total";
+  document.getElementById("grand").textContent = money(grand);
+  var parts = ["meat " + money(meat)];
+  if (opts.potato && spud) parts.push("potatoes " + money(spudCost));
+  if (drive) parts.push("driving " + money(drive.cost));
+  document.getElementById("grandSub").textContent = parts.length > 1 ? parts.join(" + ") : "";
+  var usedNames = usedStores.map(function(s){ return STORES[s].name; });
+  document.getElementById("grandStores").textContent = usedNames.length + " store" + (usedNames.length === 1 ? "" : "s") + ": " + usedNames.join(", ");
+
+  var diff = round2(379.90 - grand);
+  var counting = [];
+  if (opts.potato && spud) counting.push("a 10 lb bag of potatoes");
+  if (drive) counting.push("driving");
+  var tail = counting.length ? " (counting " + counting.join(" and ") + ")" : "";
+  document.querySelectorAll("#mainView .verdict").forEach(function(v){
+    if (anyOn && missing){
+      v.classList.remove("over","save");
+      v.querySelector(".big").textContent = missing + " item" + (missing === 1 ? " isn't" : "s aren't") + " carried by the stores you have on";
+      v.querySelector(".small").textContent = "Select another store to compare.";
+      return;
+    }
+    if (!anyOn){
+      v.classList.remove("over","save");
+      v.querySelector(".big").textContent = "Pick at least one store to compare";
+      v.querySelector(".small").textContent = "Use the store buttons below the list.";
+      return;
+    }
+    v.classList.toggle("over", diff > 0);
+    v.classList.toggle("save", diff <= 0);
+    v.querySelector(".big").textContent = diff > 0 ? "Bundle costs " + money(diff) + " more" : "Bundle saves " + money(-diff);
+    v.querySelector(".small").textContent = (diff > 0 ? "than " : "versus ") + money(grand) + " at these store prices" + tail + ".";
+  });
+
+  renderTally();
+  fitNames();
+  STORE_ORDER.forEach(function(s){ setPressed(document.getElementById("t-" + s), opts.on[s]); });
+  setPressed(document.getElementById("tDeal"), opts.deals);
+  setPressed(document.getElementById("tCar"), opts.car);
+  setPressed(document.getElementById("tPotato"), opts.potato);
+  renderWho();
+  renderStores();
+}
+
+/* Shrink a gauge name only when a single word would not fit, so names never split mid-word. */
+function fitNames(){
+  if (document.getElementById("mainView").hidden) return;
+  ITEMS.forEach(function(it){
+    var r = refs[it.id], base = r.nms[0];
+    r.nms.forEach(function(n){ n.style.fontSize = ""; });
+    var size = parseFloat(getComputedStyle(base).fontSize), guard = 0;
+    var room = r.gauge.clientWidth - 12;
+    function longest(){ var c = document.createElement("span"); c.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font:inherit;letter-spacing:inherit;text-transform:uppercase"; base.appendChild(c); var w = 0; base.firstChild && String(base.firstChild.nodeValue || "").split(/\s+/).forEach(function(word){ c.textContent = word; w = Math.max(w, c.offsetWidth); }); base.removeChild(c); return w; }
+    while (longest() > room && size > 11 && guard++ < 40){
+      size -= 0.5;
+      r.nms.forEach(function(n){ n.style.fontSize = size + "px"; });
+    }
+  });
+}
+var fitTimer = null;
+window.addEventListener("resize", function(){ clearTimeout(fitTimer); fitTimer = setTimeout(fitNames, 120); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitNames).catch(function(){});
+
+/* ===== Moo / Kake ===== */
+var whoBtn = document.getElementById("whoBtn");
+function renderWho(){
+  var h = HOMES[state.who], other = HOMES[state.who === "moo" ? "kake" : "moo"];
+  whoBtn.textContent = h.label;
+  whoBtn.setAttribute("data-who", state.who);
+  whoBtn.setAttribute("aria-label", "Driving from " + h.label + "'s. Tap to switch to " + other.label + ".");
+}
+whoBtn.addEventListener("click", function(){
+  state.who = state.who === "moo" ? "kake" : "moo";
+  render(); persist();
+});
+
+/* ===== store tables view ===== */
+var storeBtnsEl = document.getElementById("storeBtns");
+STORE_ORDER.forEach(function(s){
+  var b = document.createElement("button");
+  b.className = "tog"; b.type = "button"; b.id = "st-" + s; b.textContent = STORES[s].name;
+  b.addEventListener("click", function(){ view.store = s; renderStores(); });
+  storeBtnsEl.appendChild(b);
+});
+document.getElementById("sDeal").addEventListener("click", function(){ view.deals = !view.deals; renderStores(); });
+
+function renderStores(){
+  STORE_ORDER.forEach(function(s){ setPressed(document.getElementById("st-" + s), view.store === s); });
+  setPressed(document.getElementById("sDeal"), view.deals);
+  var st = STORES[view.store], loc = st[state.who], home = HOMES[state.who];
+  var dist = milesBetween(home.at, loc.at);
+  document.getElementById("storeInfo").innerHTML =
+    '<strong>' + st.name + '</strong> · prices from ' + st.priced + '<br>' +
+    'Closest to ' + home.label + "'s: " + loc.addr + ' (about ' + dist.toFixed(1) + ' mi)';
+  var rows = [];
+  TABLE_ROWS.forEach(function(tr){
+    var key = tr[0], p = getP(key, view.store) || {};
+    var useDeal = view.deals && p.deal;
+    var o = useDeal ? p.deal : p.reg;
+    var head = '<div class="iname">' + tr[1] + '</div><div class="iamt">' + tr[2] + '</div>';
+    if (!o){
+      var note = (!view.deals && p.deal) ? "No regular price · on sale now, press Deals" : "Not found";
+      rows.push('<tr><td>' + head + '</td><td class="r nf" colspan="2">' + note + '</td></tr>');
+      return;
+    }
+    var unit = o.flat != null ? money(o.flat) : money(o.per) + "/lb";
+    var price = '<span class="price">' + unit + '</span><span class="iamt">' + (o.scan ? "in-person scan, " + prettyDate(o.seen) : (function(n){ return n <= 0 ? "checked today" : n + " days old"; })(daysOld(o.seen || BASE_SEEN))) + '</span>';
+    if (useDeal){
+      if (p.reg) price += '<span class="was">' + (p.reg.flat != null ? money(p.reg.flat) : money(p.reg.per) + "/lb") + '</span>';
+      price += '<span class="when">(' + o.when + ')</span>';
+    }
+    rows.push('<tr' + (useDeal ? ' class="isdeal"' : '') + '><td>' + head + '<div class="pdesc">' + o.desc + '</div></td>' +
+      '<td class="r">' + price + '</td><td class="r"><span class="cost">' + money(costOf(o, key)) + '</span></td></tr>');
+  });
+  document.getElementById("storeRows").innerHTML = rows.join("");
+  renderHistory();
+}
+
+var mainView = document.getElementById("mainView"), storesView = document.getElementById("storesView"), flyerView = document.getElementById("flyerView");
+document.getElementById("openFlyer").addEventListener("click", function(){ mainView.hidden = true; flyerView.hidden = false; try { window.scrollTo(0,0); } catch(e){} });
+document.getElementById("flyerBack").addEventListener("click", function(){ flyerView.hidden = true; mainView.hidden = false; fitNames(); try { window.scrollTo(0,0); } catch(e){} });
+document.getElementById("openStores").addEventListener("click", function(){
+  mainView.hidden = true; storesView.hidden = false; renderStores();
+  try { window.scrollTo(0, 0); } catch(e){}
+});
+document.getElementById("backBtn").addEventListener("click", function(){
+  storesView.hidden = true; mainView.hidden = false; fitNames();
+  try { window.scrollTo(0, 0); } catch(e){}
+});
+
+/* ===== main page buttons ===== */
+function bindToggle(id, key){ document.getElementById(id).addEventListener("click", function(){ opts[key] = !opts[key]; render(); }); }
+STORE_ORDER.forEach(function(s){ document.getElementById("t-" + s).addEventListener("click", function(){ opts.on[s] = !opts.on[s]; render(); persist(); }); });
+bindToggle("tDeal", "deals");
+bindToggle("tCar", "car");
+bindToggle("tPotato", "potato");
+
+var resetBtn = document.getElementById("resetBtn"), armTimer = null;
+resetBtn.addEventListener("click", function(){
+  if (!resetBtn.classList.contains("arm")){
+    resetBtn.classList.add("arm"); resetBtn.textContent = "Tap again to refill everything";
+    armTimer = setTimeout(function(){ resetBtn.classList.remove("arm"); resetBtn.textContent = "Refill all gauges"; }, 4000);
+    return;
+  }
+  clearTimeout(armTimer);
+  resetBtn.classList.remove("arm"); resetBtn.textContent = "Refill all gauges";
+  ITEMS.forEach(function(it){ state.left[it.id] = it.lbs; });
+  render(); persist();
+});
+
+/* ===== saving: each person's own gauges ===== */
+var saveEl = document.getElementById("saveState");
+var LS_KEY = "cattlemans-gauges-v2", LS_OLD = "cattlemans-gauges-v1";
+var ref = null, dirty = false, writeChain = Promise.resolve(), debounce = null;
+
+function clean(obj){
+  var left = {};
+  ITEMS.forEach(function(it){
+    var n = Number(obj && obj.left && obj.left[it.id]);
+    left[it.id] = (isFinite(n) && n >= 0 && n <= it.lbs) ? Math.round(n) : it.lbs;
+  });
+  return {left:left, sausage:(obj && (obj.sausage === "patties" || obj.sausage === "links")) ? obj.sausage : null, who:(obj && obj.who === "kake") ? "kake" : "moo", stores:(obj && Array.isArray(obj.stores)) ? obj.stores.filter(function(x){ return STORE_ORDER.indexOf(x) >= 0; }) : []};
+}
+function apply(c){ state.left = c.left; state.sausage = c.sausage; state.who = c.who; STORE_ORDER.forEach(function(x){ opts.on[x] = c.stores.indexOf(x) >= 0; }); }
+function snapshotState(){ return {left:Object.assign({}, state.left), sausage:state.sausage, who:state.who, stores:STORE_ORDER.filter(storeOn), updatedAt:new Date().toISOString()}; }
+function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify(snapshotState())); } catch(e){} }
+
+try {
+  var saved = localStorage.getItem(LS_KEY) || localStorage.getItem(LS_OLD);
+  if (saved) apply(clean(JSON.parse(saved)));
+} catch(e){}
+
+function persist(){
+  saveLocal();
+  if (!ref) return;
+  dirty = true;
+  saveEl.textContent = "Saving…";
+  clearTimeout(debounce);
+  debounce = setTimeout(function(){
+    var body = snapshotState();
+    writeChain = writeChain.then(function(){ return ref.set(body); }).then(function(){
+      dirty = false; saveEl.textContent = "Saved to your account · syncs to your other devices";
+    }).catch(function(){
+      dirty = false; ref = null;
+      saveEl.textContent = "Saved on this device only";
+    });
+  }, 500);
+}
+
+render();
+
+if (window.claude && typeof window.claude.use === "function"){
+  Promise.all([window.claude.use("db"), window.claude.use("user")]).then(function(res){
+    var db = res[0], user = res[1];
+    if (!db || !user){ saveEl.textContent = "Saved on this device only"; return null; }
+    return user.id().then(function(id){
+      if (!id){ saveEl.textContent = "Saved on this device only"; return; }
+      ref = db.doc("data/users/" + id + "/bundle");
+      ref.onSnapshot(function(snap){
+        if (dirty) return;
+        if (snap.exists){ apply(clean(snap.data())); saveLocal(); render(); }
+        saveEl.textContent = "Saved to your account · syncs to your other devices";
+      }, function(){ saveEl.textContent = "Sync stopped · changes stay on this device"; });
+    });
+  }).catch(function(){ saveEl.textContent = "Saved on this device only"; });
+} else {
+  saveEl.textContent = "Saved on this device only";
+}
+
+/* ===== scanner, tally, history, share ===== */
+var ITEM_LABEL = {}; TABLE_ROWS.forEach(function(t){ ITEM_LABEL[t[0]] = t[1]; });
+function scanCompare(x){
+  var bpl = bundlePerLb(x.item), lbs = Number(x.lbs) || 0;
+  var total = x.total != null && x.total !== "" ? Number(x.total) : round2(x.per * lbs);
+  var line = STORES[x.store].name + " " + ITEM_LABEL[x.item].toLowerCase() + ": " + (lbs ? lbs + " lb at " : "") + money(x.per) + "/lb" + (lbs ? " = " + money(total) : "") + " (" + prettyDate(x.date) + ").";
+  if (!bpl || !lbs) return {text: line + (bpl ? " Bundle value is " + money(bpl) + "/lb." : ""), diff:null};
+  var bv = round2(bpl * lbs), d = round2(total - bv);
+  var who = d > 0 ? "The bundle is " + money(d) + " cheaper." : (d < 0 ? "The store is " + money(-d) + " cheaper." : "They cost the same.");
+  return {text: line + " The same " + lbs + " lb of Cattleman's bundle " + ITEM_LABEL[x.item].toLowerCase() + " is worth " + money(bv) + ". " + who, diff:d, bundle:bv, total:total};
+}
+function renderTally(){
+  var el = document.getElementById("tallyVal"), sub = document.getElementById("tallySub");
+  var mine = SCANS.filter(function(x){ return !myId || x.by === myId; });
+  var sum = 0, n = 0;
+  mine.forEach(function(x){ var c = scanCompare(x); if (c.diff != null){ sum += c.diff; n++; } });
+  sum = round2(sum);
+  el.classList.remove("save","over");
+  if (!n){ el.textContent = "—"; sub.textContent = "Scan what you buy to see whether the bundle beat the store."; return; }
+  if (sum >= 0){ el.textContent = "Bundle saved " + money(sum); el.classList.add("save"); }
+  else { el.textContent = "Stores saved " + money(-sum); el.classList.add("over"); }
+  sub.textContent = n + " purchase" + (n === 1 ? "" : "s") + (myId ? " you scanned" : "") + ", each at the price you paid";
+}
+
+function copyText(t, boxId){
+  var box = document.getElementById(boxId);
+  var done = function(){ if (box){ box.hidden = true; } toast("Copied. Paste it into a message."); };
+  var fallback = function(){ if (box){ box.value = t; box.hidden = false; box.focus(); box.select(); } toast("Press and hold the text to copy it."); };
+  try { navigator.clipboard.writeText(t).then(done, fallback); } catch(e){ fallback(); }
+}
+var toastTimer = null;
+function toast(msg){ var st = document.getElementById("scanStatus"); if (!document.getElementById("scanModal").hidden){ st.textContent = msg; return; } var h = document.getElementById("histTitle"); var old = h.getAttribute("data-t") || h.textContent; h.setAttribute("data-t", old); h.textContent = msg; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ h.textContent = h.getAttribute("data-t"); }, 2500); }
+
+function renderHistory(){
+  var list = SCANS.filter(function(x){ return x.store === view.store; }).sort(function(a,b){ return (b.date + (b.createdAt||"")) > (a.date + (a.createdAt||"")) ? 1 : -1; });
+  document.getElementById("histTitle").textContent = "Scans at " + STORES[view.store].name;
+  document.getElementById("histTitle").removeAttribute("data-t");
+  var box = document.getElementById("histRows");
+  if (!list.length){ box.innerHTML = '<div class="hempty">No in-person scans here yet. Use Scan at the top.</div>'; return; }
+  box.innerHTML = list.map(function(x){
+    var c = scanCompare(x);
+    var who = x.by && x.by === myId ? "you" : (NAMES[x.by] || "Someone");
+    var img = x.photoId ? '<img class="hthumb" src="' + esc(window.photoUrl ? window.photoUrl(x.photoId) : "") + '" alt="">' : '<div class="hthumb"></div>';
+    return '<div class="hrow">' + img + '<div class="htext"><strong>' + esc(ITEM_LABEL[x.item]) + '</strong> · ' + (x.lbs ? esc(x.lbs) + ' lb at ' : '') + money(x.per) + '/lb' + (c.total != null ? ' = ' + money(c.total) : '') +
+      (c.diff != null ? '<div class="hmeta">' + (c.diff > 0 ? "Bundle " + money(c.diff) + " cheaper" : c.diff < 0 ? "Store " + money(-c.diff) + " cheaper" : "Same cost") + '</div>' : '') +
+      '<div class="hmeta">' + prettyDate(x.date) + ' · scanned by ' + esc(who) + '</div></div>' +
+      '<div class="hbtns"><button type="button" data-share="' + esc(x.id) + '">Share</button><button type="button" data-del="' + esc(x.id) + '">Delete</button></div></div>';
+  }).join("") + '<textarea class="copybox" id="histCopy" rows="3" hidden readonly></textarea>';
+}
+document.getElementById("histRows").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if (!b) return;
+  var id = b.getAttribute("data-share") || b.getAttribute("data-del");
+  var x = SCANS.filter(function(s){ return s.id === id; })[0]; if (!x) return;
+  if (b.hasAttribute("data-share")){ copyText(scanCompare(x).text, "histCopy"); return; }
+  if (!b.classList.contains("arm")){ b.classList.add("arm"); b.textContent = "Tap to delete"; setTimeout(function(){ if (b.isConnected){ b.classList.remove("arm"); b.textContent = "Delete"; } }, 4000); return; }
+  deleteScan(x);
+});
+
+/* ---- capabilities ---- */
+var DB = null, ASSETS = null, SAMPLE = null, USER = null, LOCAL_SCANS = "cattlemans-scans-local";
+function loadLocalScans(){ try { var a = JSON.parse(localStorage.getItem(LOCAL_SCANS) || "[]"); return Array.isArray(a) ? a : []; } catch(e){ return []; } }
+function saveLocalScans(a){ try { localStorage.setItem(LOCAL_SCANS, JSON.stringify(a)); } catch(e){} }
+function cleanScan(id, d){
+  if (!d || !STORES[d.store] || !ITEM_LABEL[d.item]) return null;
+  var per = Number(d.per); if (!(per > 0)) return null;
+  return {id:id, store:d.store, item:d.item, per:per, lbs: d.lbs ? Number(d.lbs) : 0, total: d.total != null && d.total !== "" ? Number(d.total) : null,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : BASE_SEEN, photoId: typeof d.photoId === "string" ? d.photoId : null, by: typeof d.by === "string" ? d.by : null, createdAt: String(d.createdAt || "")};
+}
+SCANS = loadLocalScans().map(function(d){ return cleanScan(d.id, d); }).filter(Boolean);
+function refreshNames(){
+  if (!USER || !USER.profiles) return;
+  var ids = SCANS.map(function(x){ return x.by; }).filter(function(v, i, a){ return v && a.indexOf(v) === i; });
+  if (!ids.length) return;
+  USER.profiles(ids).then(function(ps){ ids.forEach(function(i){ if (ps[i] && ps[i].name) NAMES[i] = ps[i].name; }); renderHistory(); }).catch(function(){});
+}
+function deleteScan(x){
+  if (DB && !x.local){
+    DB.doc("scans/" + x.id).delete().then(function(){ if (x.photoId && ASSETS) ASSETS.delete(x.photoId).catch(function(){}); }).catch(function(){ toast("Couldn't delete that scan."); });
+  } else {
+    SCANS = SCANS.filter(function(s){ return s.id !== x.id; }); saveLocalScans(SCANS.filter(function(s){ return s.local; })); render();
+  }
+}
+if (window.claude && typeof window.claude.use === "function"){
+  Promise.all([window.claude.use("db"), window.claude.use("assets"), window.claude.use("sample"), window.claude.use("user")]).then(function(r){
+    DB = r[0]; ASSETS = r[1]; SAMPLE = r[2]; USER = r[3];
+    if (USER) USER.id().then(function(id){ myId = id; render(); }).catch(function(){});
+    if (DB){
+      DB.collection("scans").onSnapshot(function(qs){
+        var shared = qs.docs.map(function(d){ return cleanScan(d.id, d.data()); }).filter(Boolean);
+        SCANS = shared.concat(loadLocalScans().map(function(d){ var c = cleanScan(d.id, d); if (c) c.local = true; return c; }).filter(Boolean));
+        render(); refreshNames();
+      }, function(){});
+    }
+  }).catch(function(){});
+}
+
+/* ---- modal ---- */
+var modal = document.getElementById("scanModal"), scanInput = document.getElementById("scanInput");
+var fStore = document.getElementById("fStore"), fItem = document.getElementById("fItem"), fPer = document.getElementById("fPer"), fLbs = document.getElementById("fLbs"), fTotal = document.getElementById("fTotal"), fDate = document.getElementById("fDate");
+var scanFile = null, savedScan = null, readToken = 0;
+["bjs","costco","sams","aldi","kroger","meijer","walmart"].forEach(function(k){ var o = document.createElement("option"); o.value = k; o.textContent = STORES[k].name; fStore.appendChild(o); });
+TABLE_ROWS.forEach(function(t){ var o = document.createElement("option"); o.value = t[0]; o.textContent = t[1]; fItem.appendChild(o); });
+function todayStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function formScan(){ return {store:fStore.value, item:fItem.value, per:Number(fPer.value), lbs:fLbs.value ? Number(fLbs.value) : 0, total:fTotal.value ? Number(fTotal.value) : null, date:fDate.value || todayStr()}; }
+function checkForm(){
+  var x = formScan(), chk = document.getElementById("scanCheck"), cmp = document.getElementById("scanCompare");
+  if (x.per > 0 && x.lbs > 0 && x.total != null){
+    var off = Math.abs(round2(x.per * x.lbs) - x.total);
+    chk.hidden = false; chk.className = "mcheck " + (off <= 0.05 ? "ok" : "bad");
+    chk.textContent = off <= 0.05 ? "✓ Price × weight matches the total" : "Price × weight is " + money(round2(x.per * x.lbs)) + ", but the total says " + money(x.total) + ". Check the numbers.";
+  } else chk.hidden = true;
+  cmp.textContent = x.per > 0 ? scanCompare(x).text : "";
+  document.getElementById("scanSave").disabled = !(x.per > 0) || !!savedScan;
+}
+[fStore, fItem, fPer, fLbs, fTotal, fDate].forEach(function(el){ el.addEventListener("input", function(){ savedScan = null; document.getElementById("scanShare").hidden = true; checkForm(); }); });
+function openModal(){ modal.hidden = false; document.body.style.overflow = "hidden"; }
+function closeModal(){ modal.hidden = true; document.body.style.overflow = ""; document.getElementById("copyBox").hidden = true; readToken++; }
+document.getElementById("scanClose").addEventListener("click", closeModal);
+modal.addEventListener("click", function(e){ if (e.target === modal) closeModal(); });
+document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !modal.hidden) closeModal(); });
+document.getElementById("scanBtn").addEventListener("click", function(){ scanInput.value = ""; scanInput.click(); });
+document.getElementById("scanRetake").addEventListener("click", function(){ scanInput.value = ""; scanInput.click(); });
+
+function shrink(file){
+  return new Promise(function(res){
+    try {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function(){ var m = 1400, sc = Math.min(1, m / Math.max(img.width, img.height)); var c = document.createElement("canvas"); c.width = Math.round(img.width*sc); c.height = Math.round(img.height*sc); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); c.toBlob(function(b){ res(b || file); }, "image/jpeg", 0.82); };
+      img.onerror = function(){ URL.revokeObjectURL(url); res(file); };
+      img.src = url;
+    } catch(e){ res(file); }
+  });
+}
+scanInput.addEventListener("change", function(){
+  var f = scanInput.files && scanInput.files[0]; if (!f) return;
+  savedScan = null; document.getElementById("scanShare").hidden = true; document.getElementById("copyBox").hidden = true;
+  fPer.value = ""; fLbs.value = ""; fTotal.value = ""; fDate.value = todayStr();
+  var st = document.getElementById("scanStatus");
+  document.getElementById("scanPreview").src = URL.createObjectURL(f);
+  openModal(); checkForm();
+  shrink(f).then(function(b){
+    scanFile = b;
+    if (!SAMPLE){ st.textContent = "Type the numbers from the tag, then save."; return; }
+    var my = ++readToken;
+    st.textContent = "Reading the tag…";
+    var prompt = "The image is a photo of a grocery store meat price tag or receipt line in Michigan. Read it and answer with JSON only: " +
+      '{"store": one of "kroger","meijer","walmart","aldi","sams","costco","bjs" or null, "item": one of "sirloin","stew","hamburger","chicken","chops","porksteak","legq","ribs","polish","links","patties","potato" or null, ' +
+      '"pricePerLb": number or null, "netWeightLb": number or null, "totalPrice": number or null, "date": "YYYY-MM-DD" or null}. ' +
+      "Item meanings: sirloin = sirloin steak; stew = beef stew meat; hamburger = ground beef; chicken = boneless chicken breast; chops = pork chops; porksteak = pork shoulder/butt/blade steak; legq = chicken leg quarters; ribs = pork spare ribs; polish = polish sausage or kielbasa; links = breakfast sausage links; patties = breakfast sausage patties; potato = russet potatoes. " +
+      "Use null for anything you cannot read. If only a price per lb and weight are shown, still give them.";
+    SAMPLE.json(prompt, {images:[b], modelTier:"default"}).then(function(r){
+      if (my !== readToken || !r) return;
+      if (r.store && STORES[r.store]) fStore.value = r.store;
+      if (r.item && ITEM_LABEL[r.item]) fItem.value = r.item;
+      if (r.pricePerLb > 0) fPer.value = r.pricePerLb;
+      if (r.netWeightLb > 0) fLbs.value = r.netWeightLb;
+      if (r.totalPrice > 0) fTotal.value = r.totalPrice;
+      if (!fPer.value && fTotal.value && fLbs.value) fPer.value = round2(Number(fTotal.value) / Number(fLbs.value));
+      if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) fDate.value = r.date;
+      st.textContent = "Check what the tag reader found, fix anything wrong, then save.";
+      checkForm();
+    }).catch(function(e){
+      if (my !== readToken) return;
+      st.textContent = (e && e.code === "not_granted") ? "Tag reading is off. Type the numbers in, then save." : "Couldn't read the tag. Type the numbers in, then save.";
+    });
+  });
+});
+
+document.getElementById("scanSave").addEventListener("click", function(){
+  var x = formScan(); if (!(x.per > 0)) return;
+  var btn = this, st = document.getElementById("scanStatus");
+  btn.disabled = true; st.textContent = "Saving…";
+  x.createdAt = new Date().toISOString(); x.by = myId || null;
+  var upload = (ASSETS && scanFile) ? ASSETS.upload(scanFile).then(function(a){ return a.id; }).catch(function(){ return null; }) : Promise.resolve(null);
+  upload.then(function(pid){
+    x.photoId = pid;
+    if (DB) return DB.collection("scans").add(x).then(function(ref){ x.id = ref.id; return "shared"; });
+    throw new Error("nodb");
+  }).catch(function(){
+    x.id = "local-" + Date.now(); x.local = true;
+    var loc = loadLocalScans(); loc.push(x); saveLocalScans(loc);
+    SCANS.push(cleanScan(x.id, x)); SCANS[SCANS.length-1].local = true; render();
+    return "local";
+  }).then(function(where){
+    savedScan = x;
+    st.textContent = where === "shared" ? "Saved and shared. It's now the newest price for this store and item." : "Saved on this device only.";
+    document.getElementById("scanShare").hidden = false;
+    checkForm();
+  });
+});
+document.getElementById("scanShare").addEventListener("click", function(){ if (savedScan) copyText(scanCompare(savedScan).text, "copyBox"); });
+render();
+})();
+</script>
+
+</body>
+</html>
