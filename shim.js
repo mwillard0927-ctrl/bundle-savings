@@ -12,7 +12,8 @@
     return sessionP.then(function(s){
       if (!s) return "";
       var m = s.user.user_metadata || {};
-      return m.name || (s.user.email || "").split("@")[0];
+      var raw = m.name || (s.user.email || "").split("@")[0];
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
     });
   }
 
@@ -150,39 +151,44 @@
     var modal = el("div", {"class":"modal", id:"authModal", hidden:"", role:"dialog", "aria-modal":"true"});
     modal.innerHTML = '<div class="mcard"><div class="mhead"><h3>Sign in to sync</h3><button class="xbtn" id="authClose" aria-label="Close">×</button></div>' +
       '<form id="authForm" class="mgrid" style="grid-template-columns:1fr">' +
-      '<div class="mfield"><label for="authName">Your name (shown on your scans)</label><input id="authName" autocomplete="name" required></div>' +
-      '<div class="mfield"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="email" required></div>' +
-      '<div class="mactions"><button class="mbtn primary" type="submit" id="authSend">Email me a sign-in link</button></div>' +
-      '<div class="mstatus" id="authStatus">We\'ll email you a link. Tap it on this phone to sign in. No password needed.</div></form></div>';
+      '<div class="mfield"><label for="authUser">Username</label><input id="authUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></div>' +
+      '<div class="mfield"><label for="authPass">Password</label><input id="authPass" type="password" autocomplete="current-password" required></div>' +
+      '<div class="mactions"><button class="mbtn primary" type="submit" id="authSend">Sign in</button></div>' +
+      '<div class="mstatus" id="authStatus">Use the username and password you were given.</div></form></div>';
     document.body.appendChild(modal);
     var close = function(){ modal.hidden = true; };
     document.getElementById("authClose").addEventListener("click", close);
     modal.addEventListener("click", function(e){ if (e.target === modal) close(); });
-    try { document.getElementById("authName").value = localStorage.getItem("cbs-name") || ""; } catch(e){}
-
+    var DOMAIN = "@bundle.app";
     document.getElementById("authForm").addEventListener("submit", function(e){
       e.preventDefault();
-      var name = document.getElementById("authName").value.trim();
-      var email = document.getElementById("authEmail").value.trim();
+      var u = document.getElementById("authUser").value.trim().toLowerCase();
+      var pass = document.getElementById("authPass").value;
       var st = document.getElementById("authStatus");
-      try { localStorage.setItem("cbs-name", name); } catch(err){}
       if (!sb){ st.textContent = "The app isn't connected yet: config.js still needs your Supabase values."; return; }
-      document.getElementById("authSend").disabled = true;
-      sb.auth.signInWithOtp({email:email, options:{emailRedirectTo:location.href.split("#")[0].split("?")[0], data:{name:name}}}).then(function(r){
-        document.getElementById("authSend").disabled = false;
-        st.textContent = r.error ? ("Couldn't send the link: " + r.error.message) : "Check your email and tap the link. It opens the app signed in.";
+      if (!u || !pass){ st.textContent = "Enter your username and password."; return; }
+      var email = u.indexOf("@") >= 0 ? u : u + DOMAIN;
+      st.textContent = "Signing in…";
+      sb.auth.signInWithPassword({email:email, password:pass}).then(function(r){
+        if (r.error){ st.textContent = /invalid/i.test(r.error.message) ? "That username or password isn't right." : "Couldn't sign in: " + r.error.message; return; }
+        try { localStorage.setItem("cbs-name", u.split("@")[0]); } catch(err){}
+        location.reload();
       });
     });
 
     sessionP.then(function(s){
       if (s){
         var m = s.user.user_metadata || {};
-        var nm = m.name || (s.user.email || "").split("@")[0];
+        var raw = m.name || (s.user.email || "").split("@")[0];
+        var nm = raw.charAt(0).toUpperCase() + raw.slice(1);
         btn.textContent = "Sign out";
         btn.title = "Signed in as " + nm;
         var saved = null; try { saved = localStorage.getItem("cbs-name"); } catch(e){}
-        if (!m.name && saved) sb.auth.updateUser({data:{name:saved}});
-        btn.addEventListener("click", function(){ sb.auth.signOut().then(function(){ location.reload(); }); });
+        btn.addEventListener("click", function(){
+          if (btn.getAttribute("data-arm")){ sb.auth.signOut().then(function(){ location.reload(); }); return; }
+          btn.setAttribute("data-arm", "1"); btn.textContent = "Tap to sign out";
+          setTimeout(function(){ btn.removeAttribute("data-arm"); btn.textContent = "Sign out"; }, 4000);
+        });
         var util = document.querySelector(".util");
         if (util) util.appendChild(el("span", {"class":"authnote"}, "Signed in as " + nm));
       } else {
